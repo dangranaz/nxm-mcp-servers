@@ -1,0 +1,26 @@
+[package]
+name = "nxm-tools"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Pure-Rust tool implementations (web_search, read_file, list_resources) for the Nexum agentic TUI."
+publish = false
+
+# Isolato dal workspace di nxm-harness: [workspace] vuoto => radice indipendente.
+[workspace]
+
+[lib]
+name = "nxm_tools"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"] }
+anyhow = "1"
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = 3

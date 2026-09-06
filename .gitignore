@@ -1,0 +1,2 @@
+# Build artifacts — local-only, never commit.
+target/
