@@ -1,8 +1,7 @@
-# Transition state: no members yet. Public MCP servers (e.g. nxm-docs-mcp) will
-# be added here, derived from the private nxm-mcp-servers umbrella.
+# Public MCP servers. nxm-docs-mcp (PDF<->MD) is fully open (MIT/Apache-2.0).
 [workspace]
 resolver = "2"
-members = []
+members = ["nxm-docs-mcp"]
 
 [workspace.package]
 version = "0.1.0"
