@@ -1,7 +1,9 @@
 # Public MCP servers. nxm-docs-mcp (PDF<->MD) is fully open (MIT/Apache-2.0).
 [workspace]
 resolver = "2"
-members = ["nxm-docs-mcp"]
+members = [        "nxm-gateway-mcp",
+"nxm-webtomd",
+"nxm-docs-mcp"]
 
 [workspace.package]
 version = "0.1.0"

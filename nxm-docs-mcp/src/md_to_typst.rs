@@ -150,6 +150,14 @@ pub fn convert(markdown: &str) -> String {
             Event::Text(text) => {
                 if in_code_block {
                     out.push_str(&text);
+                } else if let Some(rest) = text.strip_prefix("\\pagebreak") {
+                    // Explicit page break marker: emit a real Typst pagebreak,
+                    // then continue with any trailing text on the new page.
+                    out.push_str("\n#pagebreak()\n");
+                    let rest = rest.trim_start();
+                    if !rest.is_empty() {
+                        out.push_str(&escape_typst(rest));
+                    }
                 } else {
                     out.push_str(&escape_typst(&text));
                 }
@@ -197,7 +205,7 @@ fn escape_typst(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
-            '#' | '_' | '*' | '[' | ']' | '<' | '>' | '\\' | '`' | '"' | '$' => {
+            '#' | '_' | '*' | '[' | ']' | '<' | '>' | '\\' | '`' | '"' | '$' | '@' => {
                 out.push('\\');
                 out.push(c);
             }
@@ -285,5 +293,13 @@ mod tests {
         let md = "Use #hashtag and _underscore_";
         let typst = convert(md);
         assert!(typst.contains("\\#hashtag"));
+    }
+
+    #[test]
+    fn escapes_email_at_sign() {
+        // `@` is Typst reference syntax; an unescaped email breaks compilation.
+        let md = "Contact: danielbe.oddo@gmail.com";
+        let typst = convert(md);
+        assert!(typst.contains("\\@gmail.com"), "@ not escaped: {typst}");
     }
 }

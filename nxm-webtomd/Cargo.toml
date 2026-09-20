@@ -1,0 +1,55 @@
+[package]
+name = "nxm-webtomd"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+description = "A small, dependency-light MCP server that fetches web articles and converts them to clean Markdown."
+repository.workspace = true
+authors = ["Daniele Oddo"]
+keywords = ["mcp", "web", "markdown", "article", "cli"]
+categories = ["command-line-utilities", "text-processing"]
+# Keep the published crate lean: ship only what a consumer needs.
+# Docs assets (images/GIF), CI, and the installer live on GitHub, not on crates.io.
+include = [
+    "src/**/*.rs",
+    "tests/**/*.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+]
+
+[[bin]]
+name = "nxm-webtomd"
+path = "src/main.rs"
+
+[dependencies]
+# Markdown parsing / rendering
+pulldown-cmark = "0.12"
+# Serialization (JSON-RPC messages)
+serde.workspace = true
+serde_json.workspace = true
+# Error handling
+anyhow.workspace = true
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+# HTTP client
+reqwest = { version = "0.13", features = ["json", "stream"] }
+# TLS implementation
+rustls = "0.23"
+# Middleware stack
+reqwest-middleware = { version = "0.5", features = ["rustls"] }
+reqwest-ssrf-guard = { version = "0.1", features = ["middleware"] }
+# MIME type detection
+mime = "0.3"
+# HTML extraction to Markdown
+dom_smoothie = "0.18"
+# Bytes utility
+bytes = "1.0"
+
+[dev-dependencies]
+tempfile = "3"

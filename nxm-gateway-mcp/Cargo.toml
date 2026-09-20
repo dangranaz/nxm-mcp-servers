@@ -1,0 +1,55 @@
+[package]
+name = "nxm-gateway-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+description = "A thin federated MCP gateway: fans a query out to nxm-memory DB nodes and fuses results with Reciprocal Rank Fusion (RRF). Holds no index and loads no model."
+repository.workspace = true
+authors = ["Daniele Oddo"]
+keywords = ["mcp", "gateway", "federation", "rrf", "search"]
+categories = ["command-line-utilities"]
+# Keep the published crate lean: ship only what a consumer needs.
+include = [
+    "src/**/*.rs",
+    "tests/**/*.rs",
+    "Cargo.toml",
+    "README.md",
+    "README_ENG.md",
+    "README_ITA.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+]
+
+# ---------------------------------------------------------------------------
+# ALIGNMENT NOTE (see RULES.md -> Public / Private Split, and
+# docs/ALIGNMENT_MEMORY_GATEWAY_*.md in nxm-memory):
+#
+# This crate is the ONLY part of the nxm-memory world that is published. It is a
+# thin MCP proxy (fan-out + RRF) — no index, no model, no engine logic. Its
+# SOURCE OF TRUTH is nxm-memory/nxm_mcp/src/gateway.rs; this crate is an
+# ALIGNMENT DESTINATION produced by scripts/sync-gateway-to-mcp.sh. Do NOT edit
+# the gateway here — edit it in nxm-memory and re-run the sync script.
+# ---------------------------------------------------------------------------
+
+[[bin]]
+name = "nxm-gateway-mcp"
+path = "src/main.rs"
+
+[lib]
+name = "nxm_gateway_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "io-util"] }
+# Blocking HTTP client used to call the DB nodes' MCP endpoints.
+ureq = { version = "2", features = ["json"] }
+# Config file parsing (reads [gateway].nodes from nxm-memory's TOML).
+toml = "0.8"
+
+[dev-dependencies]

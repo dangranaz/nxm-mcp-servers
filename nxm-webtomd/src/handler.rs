@@ -4,7 +4,6 @@
 //! contract of this server. The actual work is delegated to [`crate::convert`].
 
 use serde_json::{json, Value};
-use std::path::Path;
 
 use crate::convert;
 use crate::protocol::{codes, JsonRpcRequest, JsonRpcResponse};
@@ -13,12 +12,14 @@ use crate::protocol::{codes, JsonRpcRequest, JsonRpcResponse};
 const PROTOCOL_VERSION: &str = "2025-06-18";
 
 /// Dispatch a single JSON-RPC request to the right handler.
-///
-/// Returns `None` for notifications (requests without an `id`), which must not
-/// produce a response per JSON-RPC.
+//
+// Returns `None` for notifications (requests without an `id`), which must not
+// produce a response per JSON-RPC.
 pub fn dispatch(req: &JsonRpcRequest) -> Option<JsonRpcResponse> {
     // Notifications carry no id and expect no reply (e.g. `notifications/initialized`).
-    req.id.as_ref()?;
+    if req.id.is_none() {
+        return None;
+    }
     let id = req.id.clone();
 
     let resp = match req.method.as_str() {
@@ -39,7 +40,7 @@ fn initialize_result() -> Value {
         "protocolVersion": PROTOCOL_VERSION,
         "capabilities": { "tools": {} },
         "serverInfo": {
-            "name": "nxm-docs-mcp",
+            "name": "nxm-webtomd",
             "version": env!("CARGO_PKG_VERSION")
         }
     })
@@ -50,41 +51,23 @@ fn tools_list_result() -> Value {
     json!({
         "tools": [
             {
-                "name": "pdf_to_md",
-                "description": "Extract the text layer of a PDF file and return it as Markdown. \
-Best-effort text extraction (no OCR, no complex layout reconstruction).",
+                "name": "web_to_md",
+                "description": "Fetch a web article and extract its main content as clean Markdown. \
+Applies a strict fetch policy (timeout, size limit, SSRF protection, content-type validation) \
+and strips active content to mitigate prompt‑injection risks.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "input_path": {
+                        "url": {
                             "type": "string",
-                            "description": "Absolute path to the source .pdf file."
+                            "description": "The URL of the article to fetch."
                         },
                         "output_path": {
                             "type": "string",
                             "description": "Optional path to write the .md result. If omitted, the Markdown is returned inline."
                         }
                     },
-                    "required": ["input_path"]
-                }
-            },
-            {
-                "name": "md_to_pdf",
-                "description": "Render a Markdown file to a native PDF document using Typst typesetting. \
-Returns PDF bytes inline or writes the .pdf file to output_path.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "input_path": {
-                            "type": "string",
-                            "description": "Absolute path to the source .md file."
-                        },
-                        "output_path": {
-                            "type": "string",
-                            "description": "Optional path to write the .pdf result. If omitted, the PDF is returned inline as base64."
-                        }
-                    },
-                    "required": ["input_path"]
+                    "required": ["url"]
                 }
             }
         ]
@@ -101,8 +84,7 @@ fn handle_tools_call(id: Option<Value>, params: &Value) -> JsonRpcResponse {
     let args = params.get("arguments").cloned().unwrap_or(json!({}));
 
     let result = match name {
-        "pdf_to_md" => tool_pdf_to_md(&args),
-        "md_to_pdf" => tool_md_to_pdf(&args),
+        "web_to_md" => tool_web_to_md(&args),
         other => Err(format!("unknown tool: {other}")),
     };
 
@@ -112,34 +94,15 @@ fn handle_tools_call(id: Option<Value>, params: &Value) -> JsonRpcResponse {
     }
 }
 
-fn tool_pdf_to_md(args: &Value) -> Result<String, String> {
-    let input = require_str(args, "input_path")?;
-    let md = convert::pdf_file_to_md(Path::new(&input)).map_err(|e| e.to_string())?;
+fn tool_web_to_md(args: &Value) -> Result<String, String> {
+    let url = require_str(args, "url")?;
+    let md = convert::url_to_md(&url).map_err(|e| e.to_string())?;
     match args.get("output_path").and_then(Value::as_str) {
         Some(out) => {
             std::fs::write(out, &md).map_err(|e| format!("failed to write {out}: {e}"))?;
             Ok(format!("Wrote {} bytes of Markdown to {out}", md.len()))
         }
         None => Ok(md),
-    }
-}
-
-fn tool_md_to_pdf(args: &Value) -> Result<String, String> {
-    let input = require_str(args, "input_path")?;
-    let pdf_bytes = convert::md_file_to_pdf(Path::new(&input)).map_err(|e| e.to_string())?;
-    match args.get("output_path").and_then(Value::as_str) {
-        Some(out) => {
-            std::fs::write(out, &pdf_bytes).map_err(|e| format!("failed to write {out}: {e}"))?;
-            Ok(format!(
-                "Wrote {} bytes of PDF to {out}",
-                pdf_bytes.len()
-            ))
-        }
-        None => {
-            use base64::Engine;
-            let encoded = base64::engine::general_purpose::STANDARD.encode(&pdf_bytes);
-            Ok(encoded)
-        }
     }
 }
 
@@ -171,7 +134,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tools_list_advertises_both_tools() {
+    fn tools_list_advertises_tool() {
         let v = tools_list_result();
         let names: Vec<&str> = v["tools"]
             .as_array()
@@ -179,8 +142,7 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert!(names.contains(&"pdf_to_md"));
-        assert!(names.contains(&"md_to_pdf"));
+        assert!(names.contains(&"web_to_md"));
     }
 
     #[test]
@@ -207,8 +169,8 @@ mod tests {
     }
 
     #[test]
-    fn md_to_pdf_missing_arg_is_tool_error() {
-        let resp = handle_tools_call(Some(json!(1)), &json!({"name": "md_to_pdf", "arguments": {}}));
+    fn web_to_md_missing_arg_is_tool_error() {
+        let resp = handle_tools_call(Some(json!(1)), &json!({"name": "web_to_md", "arguments": {}}));
         let result = resp.result.unwrap();
         assert_eq!(result["isError"], json!(true));
     }
