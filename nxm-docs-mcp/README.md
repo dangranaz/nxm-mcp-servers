@@ -12,17 +12,21 @@ It speaks the Model Context Protocol over **stdio**, so any MCP-capable agent
 | Tool | Input | Output |
 |------|-------|--------|
 | `pdf_to_md` | `input_path` (required), `output_path` (optional) | Markdown — inline, or written to `output_path` |
-| `md_to_pdf` | `input_path` (required), `output_path` (optional) | Standalone HTML ready for "Print to PDF" — inline, or written to `output_path` |
+| `md_to_pdf` | `input_path` (required), `output_path` (optional) | A **native PDF** — base64 inline, or written to `output_path` |
 
 ### Notes on scope
 
-- `pdf_to_md` performs **best-effort text extraction**: it reads the PDF's text
-  layer. It does **not** OCR scanned/image-only PDFs and does not reconstruct
-  complex layout (multi-column, tables).
-- `md_to_pdf` renders Markdown to a clean **HTML** document. True PDF rendering
-  (fonts, pagination) needs a heavy native engine, deliberately kept out of this
-  tiny tool — open the HTML in a browser and "Print → Save as PDF", or pipe it
-  through `wkhtmltopdf`.
+- `md_to_pdf` produces a **real PDF** using an embedded [Typst](https://typst.app)
+  typesetting engine — no external tools, no headless browser, no system fonts
+  required. The pipeline is Markdown → Typst markup → Typst compilation → PDF.
+  When `output_path` is omitted the PDF is returned **base64-encoded** in the
+  tool result.
+- `pdf_to_md` performs **best-effort text extraction** from the PDF's text
+  layer. It reconstructs reading order from glyph positions (full affine text +
+  CTM tracking) and promotes larger-font lines to Markdown headings, so it
+  survives round-tripping through Typst-generated PDFs (Type0/Identity-H fonts
+  with `ToUnicode` CMaps) and real-world CVs. It does **not** OCR scanned or
+  image-only PDFs, and does not reconstruct complex layout (multi-column, tables).
 
 ## Build
 
@@ -73,7 +77,7 @@ Convert a PDF to a Markdown file:
   "arguments":{"input_path":"/abs/report.pdf","output_path":"/abs/report.md"}}}
 ```
 
-Render Markdown to HTML inline:
+Render Markdown to a native PDF, returned base64-encoded inline:
 
 ```json
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{
