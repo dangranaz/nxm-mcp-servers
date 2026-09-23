@@ -7,6 +7,8 @@ It speaks the Model Context Protocol over **stdio**, so any MCP-capable agent
 > Part of the **nxm-tools** family of MCP utilities. This one is fully open
 > source (MIT / Apache-2.0).
 
+![Markdown → native PDF, live](https://raw.githubusercontent.com/dangranaz/nxm-docs-mcp/main/docs/assets/demo.gif)
+
 ## Tools
 
 | Tool | Input | Output |
